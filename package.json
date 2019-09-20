@@ -1,6 +1,6 @@
 {
   "name": "libtf",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "This library performs non-blocking inference on tensorflow frozen model. Based on the Tensorflow C API.",
   "main": "addon.js",
   "gypfile": true,

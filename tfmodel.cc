@@ -57,6 +57,8 @@ typedef struct {
   bool b_data;
   bool isFloat32Array;
   std::vector<float> fa_data;
+  bool isUInt8Array;
+  std::vector<unsigned char> u8a_data;
 } TFInput;
 
 Napi::Value TFModel::execute(const Napi::CallbackInfo& info) {
@@ -78,13 +80,13 @@ Napi::Value TFModel::execute(const Napi::CallbackInfo& info) {
       Napi::Boolean input = val.As<Napi::Boolean>();
       uint32_t datasize = sizeof(bool);
 
-      (*inputs).push_back({ std::string(key), std::vector<int64_t>(), datasize, true, input, false, std::vector<float>() });
+      (*inputs).push_back({ std::string(key), std::vector<int64_t>(), datasize, true, input, false, std::vector<float>(), false, std::vector<unsigned char>() });
 
     } else {
 
       Napi::Object input = val.As<Napi::Object>();
       Napi::Array arrdim = input.Get("dim").As<Napi::Array>();
-      Napi::Float32Array jsdata = input.Get("data").As<Napi::Float32Array>();
+      Napi::TypedArray arrdata = input.Get("data").As<Napi::TypedArray>();
 
       int dimlen = ((Napi::Value)arrdim["length"]).As<Napi::Number>().Int32Value();
       std::vector<int64_t> dim;
@@ -95,12 +97,18 @@ Napi::Value TFModel::execute(const Napi::CallbackInfo& info) {
         dim.push_back(d);
         dataCnt *= d;
       }
-      uint32_t datasize = dataCnt*sizeof(float);
+      //uint32_t datasize = dataCnt*sizeof(float);
+      //(*inputs).push_back({ std::string(key), dim, datasize, false, false, true, std::vector<float>(jsdata.Data(), jsdata.Data()+dataCnt) });
 
-      //std::vector<float> fa_data(dataCnt);
-      //memcpy(&fa_data[0], jsdata.Data(), datasize);
-      //(*inputs).push_back({ std::string(key), dim, datasize, false, false, true, fa_data });
-      (*inputs).push_back({ std::string(key), dim, datasize, false, false, true, std::vector<float>(jsdata.Data(), jsdata.Data()+dataCnt) });
+      if(arrdata.TypedArrayType() == napi_typedarray_type::napi_uint8_array) {
+        uint32_t datasize = dataCnt*sizeof(unsigned char);
+        Napi::Uint8Array jsdata_uint8 = arrdata.As<Napi::Uint8Array>();
+        (*inputs).push_back({ std::string(key), dim, datasize, false, false, false, std::vector<float>(), true, std::vector<unsigned char>(jsdata_uint8.Data(), jsdata_uint8.Data()+dataCnt) });
+      } else {
+        uint32_t datasize = dataCnt*sizeof(float);
+        Napi::Float32Array jsdata_float = arrdata.As<Napi::Float32Array>();
+        (*inputs).push_back({ std::string(key), dim, datasize, false, false, true, std::vector<float>(jsdata_float.Data(), jsdata_float.Data()+dataCnt), false, std::vector<unsigned char>() });
+      }
 
     }
 
@@ -134,7 +142,12 @@ Napi::Value TFModel::execute(const Napi::CallbackInfo& info) {
       if((*inputs)[i].isBool) {
         input_values.push_back(TF_NewTensor(TF_BOOL, nullptr, 0, &(*inputs)[i].b_data, (*inputs)[i].datasize, [] (void* data, size_t len, void* arg) {}, nullptr));  
       } else {
-        input_values.push_back(TF_NewTensor(TF_FLOAT, (*inputs)[i].dim.data(), (*inputs)[i].dim.size(), (*inputs)[i].fa_data.data(), (*inputs)[i].datasize, [] (void* data, size_t len, void* arg) {}, nullptr));
+        //input_values.push_back(TF_NewTensor(TF_FLOAT, (*inputs)[i].dim.data(), (*inputs)[i].dim.size(), (*inputs)[i].fa_data.data(), (*inputs)[i].datasize, [] (void* data, size_t len, void* arg) {}, nullptr));
+        if((*inputs)[i].isUInt8Array) {
+          input_values.push_back(TF_NewTensor(TF_UINT8, (*inputs)[i].dim.data(), (*inputs)[i].dim.size(), (*inputs)[i].u8a_data.data(), (*inputs)[i].datasize, [] (void* data, size_t len, void* arg) {}, nullptr));
+        } else {
+          input_values.push_back(TF_NewTensor(TF_FLOAT, (*inputs)[i].dim.data(), (*inputs)[i].dim.size(), (*inputs)[i].fa_data.data(), (*inputs)[i].datasize, [] (void* data, size_t len, void* arg) {}, nullptr));
+        }
       }
     }
 

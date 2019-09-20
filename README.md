@@ -21,19 +21,19 @@ var model = TFModel() // To be called for each desired Tensorflow Session
 
 ;(async () => {
 
-  await model.load('./model.pb') 
+  await model.load('./model.pb') // Session is created and model loaded
   var input = {
-    "isTrainingflag": false,  // boolean
-    "dropout_keep_prob": {    // scalar
+    "isTrainingflag": false,  // Boolean
+    "dropout_keep_prob": {    // Scalar
       "dim": [1],
       "data": new Float32Array([1]),
     },
-    "inputs/enc_in": {        // tensor, data must be of type Float32Array
+    "inputs/enc_in": {        // Tensor, data must be of type Float32Array or UInt8Array
       "dim": [1,32],
       "data": new Float32Array(1*32),
     },
   }
-  var result = await model.execute(input, ["dense_1/Softmax"]) // input, array of output names
+  var result = await model.execute(input, ["dense_1/Softmax"]) // arg1 is input, arg2 is an array of output names
 
   console.log(result)
 
