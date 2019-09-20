@@ -17,7 +17,14 @@ npm i libtf
 ```js
 var TFModel = require('libtf')
 
+
 var model = TFModel() // To be called for each desired Tensorflow Session
+
+// With options:
+// var model = TFModel({
+//   'allow_growth': false,       // If true, overrides gpu_memory_fraction
+//   'gpu_memory_fraction': 1.0,
+// })
 
 ;(async () => {
 

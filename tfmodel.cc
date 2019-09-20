@@ -31,6 +31,24 @@ Napi::Object TFModel::Init(Napi::Env env, Napi::Object exports) {
 TFModel::TFModel(const Napi::CallbackInfo& info) : Napi::ObjectWrap<TFModel>(info) {
   Napi::Env env = info.Env();
   Napi::HandleScope scope(env);
+
+  Napi::Object options;
+
+  if(info[0].IsObject()) {
+    options = info[0].As<Napi::Object>();
+  } else {
+    options = Napi::Object::New(env);
+  }
+
+  allow_growth = false;
+  if(options.HasOwnProperty("allow_growth")) {
+    allow_growth = options.Get("allow_growth").As<Napi::Boolean>();
+  }
+  gpu_memory_fraction = 1.0;
+  if(options.HasOwnProperty("gpu_memory_fraction")) {
+    gpu_memory_fraction = options.Get("gpu_memory_fraction").As<Napi::Number>();
+  }
+
 };
 
 TFModel::~TFModel() {
@@ -247,8 +265,19 @@ Napi::Value TFModel::load(const Napi::CallbackInfo& info) {
 
     TF_SessionOptions* sess_opts = TF_NewSessionOptions();
     //
-    uint8_t config[4] = {0x32, 0x2, 0x20, 0x1}; //config.gpu_options.allow_growth = True
-    TF_SetConfig(sess_opts, (void*)config, 4, s);
+    if(allow_growth) {
+      uint8_t config[4] = {0x32, 0x2, 0x20, 0x1}; //config.gpu_options.allow_growth = True
+      TF_SetConfig(sess_opts, (void*)config, 4, s);
+    } else {
+      if(gpu_memory_fraction > 0.0 && gpu_memory_fraction < 1.0) {
+        uint8_t config[11] = {0x32, 0x9, 0x9, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xf0, 0x3f}; //config.gpu_options.per_process_gpu_memory_fraction = 1.0
+        for(int i = 0; i < 8; i++) {
+          config[3+i] = ((unsigned char *)(&gpu_memory_fraction))[i];
+        }
+        TF_SetConfig(sess_opts, (void*)config, 11, s);
+      }
+      // else default config
+    }
     if (TF_GetCode(s) != TF_OK) {
       throw std::runtime_error("TF_NewSession failed!\n Error: " + std::string(TF_Message(s)));
     }
